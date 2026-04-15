@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   MagnifyingGlass, Barcode, Plus, Minus, Trash, Receipt,
-  CreditCard, Money, Bank, User, X
+  CreditCard, Money, Bank, User, X, ShoppingCart
 } from "@phosphor-icons/react";
 
 export default function POSPage() {
