@@ -29,8 +29,8 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [brandName, setBrandName] = useState("ERP");
-  const [logoUrl, setLogoUrl] = useState(DEFAULT_LOGO);
+  const [brandName, setBrandName] = useState(localStorage.getItem("erp_brand_name") || "ERP");
+  const [logoUrl, setLogoUrl] = useState(localStorage.getItem("erp_logo_url") || "");
 
   useEffect(() => {
     const loadBrand = async () => {
@@ -39,8 +39,12 @@ export default function Layout({ children }) {
         if (data.business_name) {
           setBrandName(data.business_name);
           document.title = data.business_name;
+          localStorage.setItem("erp_brand_name", data.business_name);
         }
-        if (data.logo_url) setLogoUrl(data.logo_url);
+        if (data.logo_url) {
+          setLogoUrl(data.logo_url);
+          localStorage.setItem("erp_logo_url", data.logo_url);
+        }
       } catch {}
     };
     loadBrand();
