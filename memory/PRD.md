@@ -4,13 +4,14 @@
 Build a SaaS-ready full-stack manufacturing and retail ERP with POS using Supabase relational database. The system must support multi-tenant deployment with a first-time setup wizard, white-label branding, and automatic database provisioning.
 
 ## Architecture
-- **Backend**: FastAPI (Python) + supabase-py + psycopg2 (direct DB for migrations)
+- **Backend**: FastAPI (Python 3.11) + supabase-py + psycopg2 (direct DB for migrations)
 - **Frontend**: React + Tailwind CSS + Shadcn UI + Phosphor Icons + Recharts
 - **Database**: Supabase (PostgreSQL) - 25+ relational tables
 - **Auth**: Custom JWT with bcrypt password hashing
 - **Design**: Quiet Luxury aesthetic (beige/navy)
 - **Migration Framework**: Auto-run on startup via Supabase RPC exec_sql()
 - **SaaS Model**: Setup wizard for per-instance configuration, .env-based config storage
+- **Production**: Gunicorn + Uvicorn workers, Nginx reverse proxy, systemd service
 
 ## What's Been Implemented
 
@@ -47,18 +48,33 @@ Build a SaaS-ready full-stack manufacturing and retail ERP with POS using Supaba
 - **Email Config UI**: Settings tab for SMTP (Forgot Password ready when SMTP configured)
 - **Sidebar Brand Caching**: localStorage cache to eliminate flash of default name
 
+### V5 — Deployment Readiness (April 19, 2026)
+- **Cleaned requirements.txt**: Trimmed from 142 to 11 direct dependencies
+- **Removed Emergent tooling**: @emergentbase/visual-edits, PostHog analytics, Emergent badge
+- **Simplified craco.config.js**: Minimal webpack alias config only
+- **Cleaned index.html**: No third-party scripts or tracking
+- **Fixed ESLint build error**: DISABLE_ESLINT_PLUGIN=true for production build
+- **Deployment artifacts**: deploy.sh, update.sh, nginx/erp.conf, systemd/erp-backend.service
+- **Documentation**: DEPLOYMENT.md with full manual + automated deployment steps
+- **Environment templates**: backend/.env.example, frontend/.env.example
+- **Runtime pinning**: .nvmrc (Node 20.20.2), .python-version (Python 3.11)
+- **Cleaned .gitignore**: Production-appropriate ignore rules
+- **Removed dead files**: Unused SetupPage.jsx, legacy migration SQL files, orphaned test file
+- **Yarn-only**: Removed npm/eslint dev tooling, standardized on yarn
+
 ## Database Tables (25+)
 users, suppliers, raw_materials, purchase_orders, purchase_order_items, locations, products, inventory, stock_transfers, stock_transfer_items, bill_of_materials, bom_items, production_orders, production_logs, customers, sales, sale_items, payments, expenses, app_settings, manual_transactions, transaction_categories, custom_orders, custom_order_items, custom_order_payments, product_attributes, product_variants, product_variant_attributes, shift_records, petty_cash, _migrations
 
 ## Prioritized Backlog
 ### P1
-- Location-based access filtering (auto-filter POS/inventory by user's assigned outlet)
 - Forgot Password / Reset Password flow using SMTP settings
+- Location-based access filtering (auto-filter POS/inventory by user's assigned outlet)
 
 ### P2
-- SMS/WhatsApp notifications (notify.lk)
-- Barcode label printing
-- Customer loyalty tiers
+- Customer loyalty tiers (Bronze/Silver/Gold)
+- Sample inventory data for POS demo
 - Multi-currency support
 - Export reports to PDF/Excel
+- SMS/WhatsApp notifications (notify.lk)
+- Barcode label printing
 - Weighted Average Cost recalculation on PO receive
