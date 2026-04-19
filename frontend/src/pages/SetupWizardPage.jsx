@@ -20,6 +20,7 @@ export default function SetupWizardPage() {
   const [error, setError] = useState("");
   const [manualSql, setManualSql] = useState("");
   const [copied, setCopied] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
   const [config, setConfig] = useState({
     business_name: "",
@@ -34,6 +35,32 @@ export default function SetupWizardPage() {
     email: "",
     password: "",
     confirmPassword: "",
+  });
+
+  // On mount: detect intermediate state (DB ready but no admin) and auto-skip to step 3
+  useState(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/setup/status`);
+        const data = await res.json();
+        if (data.setup_complete) {
+          // Fully complete — redirect to login
+          navigate("/login", { replace: true });
+          return;
+        }
+        if (data.configured && data.database_ready && !data.has_admin) {
+          // Intermediate state: DB configured, no admin yet — skip to step 3
+          if (data.business_name) {
+            setConfig(prev => ({ ...prev, business_name: data.business_name }));
+          }
+          setStep(3);
+        }
+      } catch {
+        // Fresh install, start from step 1
+      } finally {
+        setInitializing(false);
+      }
+    })();
   });
 
   const handleConfigure = async () => {
@@ -124,6 +151,9 @@ export default function SetupWizardPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F0EB] flex items-center justify-center p-6">
+      {initializing ? (
+        <div className="w-8 h-8 border-2 border-[#131D33] border-t-transparent rounded-full animate-spin" />
+      ) : (
       <div className="max-w-xl w-full space-y-6" data-testid="setup-wizard">
         {/* Progress Steps */}
         <div className="flex items-center justify-center gap-2 mb-8">
@@ -319,6 +349,7 @@ export default function SetupWizardPage() {
           Secure setup wizard — credentials are stored locally on your server
         </p>
       </div>
+      )}
     </div>
   );
 }

@@ -1730,11 +1730,12 @@ async def health_check():
 @api.get("/setup/status")
 async def setup_status():
     """Check if app is fully configured. Used by frontend to decide whether to show wizard."""
-    configured = is_setup_complete()
+    env_flag = os.environ.get("SETUP_COMPLETE", "").lower() == "true"
+    db_configured = is_configured()
     db_ready = False
     has_admin = False
     business_name = ""
-    if configured:
+    if db_configured:
         try:
             _sb().table("users").select("id", count="exact").limit(1).execute()
             db_ready = True
@@ -1746,18 +1747,26 @@ async def setup_status():
         except Exception:
             pass
     return {
-        "configured": configured,
+        "configured": db_configured,
         "database_ready": db_ready,
         "has_admin": has_admin,
         "business_name": business_name,
-        "setup_complete": configured and db_ready and has_admin
+        "setup_complete": env_flag and db_configured and db_ready and has_admin
     }
 
 @api.post("/setup/initialize")
 async def setup_initialize(request: Request):
     """First-time setup: configure Supabase, create exec_sql, run migrations, write .env."""
     if is_setup_complete():
-        raise HTTPException(status_code=403, detail="Setup already completed. Cannot re-run.")
+        # Only block if truly complete (env flag + DB + admin exists)
+        try:
+            admins = _sb().table("users").select("id").eq("role", "admin").limit(1).execute()
+            if admins.data:
+                raise HTTPException(status_code=403, detail="Setup already completed. Cannot re-run.")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
     body = await request.json()
     supabase_url = body.get("supabase_url", "").strip()
     supabase_key = body.get("supabase_key", "").strip()
@@ -1836,13 +1845,12 @@ async def setup_initialize(request: Request):
             "message": "Could not create the database helper function automatically. Please run this SQL in your Supabase SQL Editor:",
             "sql": "CREATE OR REPLACE FUNCTION exec_sql(sql_text TEXT) RETURNS void AS $$ BEGIN EXECUTE sql_text; END; $$ LANGUAGE plpgsql SECURITY DEFINER;"
         }
-    # Step 4: Write .env
+    # Step 4: Write .env (do NOT set SETUP_COMPLETE yet — that happens after admin creation)
     jwt_secret = secrets.token_urlsafe(32)
     env_updates = {
         "SUPABASE_URL": supabase_url,
         "SUPABASE_KEY": supabase_key,
         "JWT_SECRET": jwt_secret,
-        "SETUP_COMPLETE": "true",
     }
     if service_role_key:
         env_updates["SUPABASE_SERVICE_KEY"] = service_role_key
@@ -1893,7 +1901,10 @@ async def setup_create_admin(request: Request):
     # Check no admin exists already
     admins = _sb().table("users").select("id").eq("role", "admin").limit(1).execute()
     if admins.data:
-        raise HTTPException(status_code=400, detail="An admin user already exists. Please login.")
+        # Admin already exists — mark setup complete and return success
+        write_env({"SETUP_COMPLETE": "true"})
+        u = admins.data[0]
+        return {"id": u["id"], "email": "existing", "name": "Administrator", "role": "admin"}
     body = await request.json()
     email = body.get("email", "").strip().lower()
     password = body.get("password", "")
@@ -1909,8 +1920,8 @@ async def setup_create_admin(request: Request):
     }
     result = _sb().table("users").insert(user_data).execute()
     u = result.data[0]
-    # Update .env with admin credentials
-    write_env({"ADMIN_EMAIL": email, "ADMIN_PASSWORD": password})
+    # NOW mark setup as complete — admin exists
+    write_env({"ADMIN_EMAIL": email, "ADMIN_PASSWORD": password, "SETUP_COMPLETE": "true"})
     # Write test credentials
     cred_dir = Path("/app/memory")
     cred_dir.mkdir(exist_ok=True)
